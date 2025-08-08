@@ -1,73 +1,132 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma, QuestionType } from '@prisma/client';
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
-//POST /quizzes
+interface Question {
+  id: number;
+  type: QuestionType;
+  text: string;
+  answer: string | null;
+  options: string | null;
+  quizId: number;
+}
+
+interface Quiz {
+  id: number;
+  title: string;
+  questions: Question[];
+}
+
+// POST /quizzes
 router.post('/', async (req, res) => {
+  try {
     const { title, questions } = req.body;
 
-    const quiz = await prisma.quiz.create({
-	data: {
-	    title,
-	    questions: {
-		create: questions.map((q: any) => ({
-		    type: q.type,
-		    text: q.text,
-		    options: q.options ? JSON.stringify(q.options) : null,
-		    answer: JSON.stringify(q.answer),
-		    })),
-		},
-	    },
-	});
+    if (!title || !Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({ error: 'Title and questions are required' });
+    }
 
-	res.json(quiz);
-});
+    for (const q of questions) {
+      if (q.answer === undefined) {
+        return res.status(400).json({ error: `Missing answer in question: ${q.text}` });
+      }
+    }
 
-//GET /quizzes
-router.get('/', async (_, res) => {
-    const quizzes = await prisma.quiz.findMany({
-	include: { questions: true },
+    const createdQuiz = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const quiz = await tx.quiz.create({
+        data: { title },
+      });
+
+      await tx.question.createMany({
+        data: questions.map((q: any) => ({
+          quizId: quiz.id,
+          type: q.type as QuestionType, // ensure correct enum type
+          text: q.text,
+          options: q.options ? JSON.stringify(q.options) : null,
+          answer: JSON.stringify(q.answer),
+        })),
+      });
+
+      return quiz;
     });
 
-    const result = quizzes.map((q) => ({
-	id: q.id,
-	title: q.title,
-	questionCount: q.questions.length,
+    res.status(201).json(createdQuiz);
+  } catch (error) {
+    console.error('Error in POST /quizzes:', error);
+    res.status(500).json({ error: 'Failed to create quiz' });
+  }
+});
+
+// GET /quizzes
+router.get('/', async (_, res) => {
+  try {
+    const quizzes = await prisma.quiz.findMany({
+      include: { questions: true },
+    });
+
+    const result: Quiz[] = quizzes.map((quiz: Quiz) => ({
+      id: quiz.id,
+      title: quiz.title,
+      questions: quiz.questions.map((q: Question) => ({
+        id: q.id,
+        type: q.type,
+        text: q.text,
+        options: q.options ? JSON.parse(q.options) : null,
+        answer: q.answer ? JSON.parse(q.answer) : null,
+        quizId: q.quizId,
+      })),
     }));
 
     res.json(result);
+  } catch (error) {
+    console.error('Error fetching quizzes:', error);
+    res.status(500).json({ error: 'Failed to fetch quizzes' });
+  }
 });
 
-//GET /quizzes/:id
+// GET /quizzes/:id
 router.get('/:id', async (req, res) => {
+  try {
+    const quizId = Number(req.params.id);
+    if (isNaN(quizId)) {
+      return res.status(400).json({ error: 'Invalid quiz ID' });
+    }
+
     const quiz = await prisma.quiz.findUnique({
-	where: { id: Number(req.params.id) },
-	include: { questions: true },
+      where: { id: quizId },
+      include: { questions: true },
     });
 
-    if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
+    if (!quiz) {
+      return res.status(404).json({ error: 'Quiz not found' });
+    }
 
-    res.json({
-	...quiz,
-	questions: quiz.questions.map((q) => ({
-	    ...q,
-	    options: q.options ? JSON.parse(q.options) : null,
-	    answer: JSON.parse(q.answer),
-	})),
-    });
+    res.json(quiz);
+  } catch (error) {
+    console.error('Error fetching quiz:', error);
+    res.status(500).json({ error: 'Failed to fetch quiz' });
+  }
 });
 
-//DELETE /quizzes/:id
+// DELETE /quizzes/:id
 router.delete('/:id', async (req, res) => {
-    await prisma.question.deleteMany({
-	where: { quizId: Number(req.params.id) },
-    });
+  try {
+    const quizId = Number(req.params.id);
+    if (isNaN(quizId)) {
+      return res.status(400).json({ error: 'Invalid quiz ID' });
+    }
+
     await prisma.quiz.delete({
-	where: { id: Number(req.params.id) },
+      where: { id: quizId },
     });
-    res.json({ succes: true });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting quiz:', error);
+    res.status(500).json({ error: 'Failed to delete quiz' });
+  }
 });
 
 export default router;

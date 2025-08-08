@@ -14,11 +14,18 @@ model Quiz {
 }
 
 model Question {
-    id 		Int 	@id @default(autoincrement())
-    type 	String
-    text 	String
-    options 	String?
-    answer 	String
-    quizId 	Int
-    quiz 	Quiz @relation(fields: [quizId], references: [id])
+  id       Int          @id @default(autoincrement())
+  type     QuestionType
+  text     String
+  answer   String?
+  options  String?
+  quizId   Int
+  quiz     Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+}
+
+
+enum QuestionType {
+    BOOLEAN
+    INPUT
+    CHECKBOX
 }

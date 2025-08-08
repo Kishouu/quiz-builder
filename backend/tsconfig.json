@@ -1,24 +1,23 @@
 {
   "compilerOptions": {
-    "module": "ESNext",
     "target": "ES2020",
+    "module": "CommonJS",
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "types": ["node"],
-
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
-
-
-    "strict": true,
+    "isolatedModules": false,
+    "verbatimModuleSyntax": false,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
-    "isolatedModules": true,
-    "verbatimModuleSyntax": true,
     "noUncheckedSideEffectImports": true,
-
-    "skipLibCheck": true
+    "types": ["node"],
+    "outDir": "dist"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["node_modules"]
 }
