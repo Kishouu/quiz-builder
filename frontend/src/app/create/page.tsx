@@ -293,7 +293,7 @@ function CheckboxQuestionEditor({
       <button
         type="button"
         onClick={addOption}
-        className="mt-1 px-3 py-1 bg-gray-300 rounded"
+        className="mt-1 px-3 py-1 bg-gray-300 rounded text-black"
       >
         Add Option
       </button>
